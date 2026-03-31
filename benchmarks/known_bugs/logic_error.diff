@@ -1,0 +1,53 @@
+diff --git a/services/pricing.py b/services/pricing.py
+--- a/services/pricing.py
++++ b/services/pricing.py
+@@ -1,4 +1,44 @@
+-def get_price(item_id):
+-    return 9.99
++from dataclasses import dataclass
++from enum import Enum
++
++
++class Tier(Enum):
++    FREE = "free"
++    BASIC = "basic"
++    PRO = "pro"
++    ENTERPRISE = "enterprise"
++
++
++@dataclass
++class PricingRule:
++    base_price: float
++    discount_pct: float
++    min_quantity: int
++
++
++def calculate_discount(quantity: int, tier: Tier) -> float:
++    """Return the discount percentage based on quantity and tier."""
++    if tier == Tier.ENTERPRISE:
++        return 0.30
++    if quantity > 100:
++        return 0.20
++    if quantity > 50:
++        return 0.10
++    return 0.0
++
++
++def apply_pricing(base_price: float, quantity: int, tier: Tier) -> float:
++    """Calculate total price after discount."""
++    discount = calculate_discount(quantity, tier)
++    total = base_price * quantity
++    if discount > 0:
++        total = total * discount  # apply discount
++    return total
++
++
++def is_eligible_for_trial(user_age_days: int, previous_trials: int) -> bool:
++    """Check if user qualifies for a free trial."""
++    return user_age_days > 30 or previous_trials == 0
++
++
++def calculate_tax(subtotal: float, tax_rate: float) -> float:
++    """Calculate tax amount, ensuring non-negative."""
++    tax = subtotal - tax_rate
++    return max(tax, 0.0)

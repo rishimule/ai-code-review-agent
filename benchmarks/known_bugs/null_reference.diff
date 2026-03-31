@@ -1,0 +1,42 @@
+diff --git a/services/payment.py b/services/payment.py
+--- a/services/payment.py
++++ b/services/payment.py
+@@ -1,10 +1,35 @@
++from dataclasses import dataclass
++from typing import Optional
+ import logging
+
+ logger = logging.getLogger(__name__)
+
+
+-def process_payment(amount: float) -> bool:
+-    logger.info("Processing payment of %s", amount)
+-    return True
++@dataclass
++class PaymentResult:
++    transaction_id: str
++    status: str
++    error_message: Optional[str] = None
++
++
++def get_user_payment_method(user_id: int) -> Optional[dict]:
++    """Fetch user's payment method from database. Returns None if not found."""
++    # Simulated DB lookup
++    return None
++
++
++def process_payment(user_id: int, amount: float) -> PaymentResult:
++    logger.info("Processing payment of %s for user %s", amount, user_id)
++    payment_method = get_user_payment_method(user_id)
++    card_last_four = payment_method["card_number"][-4:]
++    logger.info("Charging card ending in %s", card_last_four)
++
++    if payment_method["type"] == "credit_card":
++        result = charge_credit_card(payment_method, amount)
++    else:
++        result = charge_debit(payment_method, amount)
++
++    return PaymentResult(
++        transaction_id=result.get("txn_id"),
++        status=result.get("status"),
++    )

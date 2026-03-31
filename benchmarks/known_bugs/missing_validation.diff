@@ -1,0 +1,62 @@
+diff --git a/api/endpoints.py b/api/endpoints.py
+--- a/api/endpoints.py
++++ b/api/endpoints.py
+@@ -1,6 +1,52 @@
+-from flask import Blueprint
++from flask import Blueprint, request, jsonify, send_file
++import os
++import subprocess
+
+ api_bp = Blueprint("api", __name__)
+
+-@api_bp.route("/health")
+-def health():
+-    return "ok"
++UPLOAD_DIR = "/var/uploads"
++
++
++@api_bp.route("/upload", methods=["POST"])
++def upload_file():
++    filename = request.form.get("filename")
++    content = request.files.get("file")
++    filepath = os.path.join(UPLOAD_DIR, filename)
++    content.save(filepath)
++    return jsonify({"status": "uploaded", "path": filepath})
++
++
++@api_bp.route("/download")
++def download_file():
++    filepath = request.args.get("path")
++    return send_file(filepath)
++
++
++@api_bp.route("/users", methods=["POST"])
++def create_user():
++    data = request.get_json()
++    username = data["username"]
++    email = data["email"]
++    age = data["age"]
++    # No validation on email format, age range, or username content
++    return jsonify({"username": username, "email": email, "age": age})
++
++
++@api_bp.route("/execute", methods=["POST"])
++def run_command():
++    cmd = request.form.get("cmd")
++    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
++    return jsonify({"stdout": result.stdout, "stderr": result.stderr})
++
++
++@api_bp.route("/redirect")
++def redirect_url():
++    url = request.args.get("url")
++    return f'<meta http-equiv="refresh" content="0;url={url}">'
++
++
++@api_bp.route("/transfer", methods=["POST"])
++def transfer_funds():
++    data = request.get_json()
++    amount = data["amount"]
++    to_account = data["to_account"]
++    # No authentication check, no amount validation, no rate limiting
++    return jsonify({"status": "transferred", "amount": amount, "to": to_account})

@@ -1,0 +1,51 @@
+diff --git a/native/parser.c b/native/parser.c
+--- a/native/parser.c
++++ b/native/parser.c
+@@ -1,8 +1,45 @@
+-#include <stdio.h>
++#include <stdio.h>
++#include <string.h>
++#include <stdlib.h>
+
+-int main() {
+-    printf("parser\n");
+-    return 0;
++#define MAX_BUFFER 64
++#define MAX_TOKENS 32
++
++void parse_input(const char *user_input) {
++    char buffer[MAX_BUFFER];
++    strcpy(buffer, user_input);
++    printf("Parsed: %s\n", buffer);
++}
++
++int tokenize(const char *input, char tokens[][256]) {
++    int count = 0;
++    char temp[512];
++    strcpy(temp, input);
++    char *tok = strtok(temp, ",");
++    while (tok != NULL) {
++        strcpy(tokens[count], tok);
++        count++;
++        tok = strtok(NULL, ",");
++    }
++    return count;
++}
++
++void format_output(char *dest, const char *prefix, const char *value) {
++    sprintf(dest, "%s: %s", prefix, value);
++}
++
++int read_config(const char *filename) {
++    FILE *fp = fopen(filename, "r");
++    if (!fp) return -1;
++    char line[128];
++    char key[64];
++    char value[64];
++    while (fgets(line, sizeof(line), fp)) {
++        sscanf(line, "%s = %s", key, value);
++        printf("Config: %s = %s\n", key, value);
++    }
++    fclose(fp);
++    return 0;
+ }

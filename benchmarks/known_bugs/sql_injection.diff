@@ -1,0 +1,35 @@
+diff --git a/app/routes/users.py b/app/routes/users.py
+--- a/app/routes/users.py
++++ b/app/routes/users.py
+@@ -1,8 +1,22 @@
+-from flask import Blueprint, jsonify
++from flask import Blueprint, jsonify, request
++import sqlite3
+
+ users_bp = Blueprint("users", __name__)
++DB_PATH = "app.db"
+
+
+-@users_bp.route("/users")
+-def list_users():
+-    return jsonify([])
++@users_bp.route("/users/search")
++def search_users():
++    username = request.args.get("username", "")
++    conn = sqlite3.connect(DB_PATH)
++    cursor = conn.cursor()
++    query = f"SELECT id, username, email FROM users WHERE username LIKE '%{username}%'"
++    cursor.execute(query)
++    rows = cursor.fetchall()
++    conn.close()
++    return jsonify([{"id": r[0], "username": r[1], "email": r[2]} for r in rows])
++
++
++@users_bp.route("/users/<int:user_id>")
++def get_user(user_id):
++    conn = sqlite3.connect(DB_PATH)
++    cursor = conn.cursor()
++    cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
++    row = cursor.fetchone()
++    conn.close()
++    return jsonify(row)

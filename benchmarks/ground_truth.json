@@ -1,0 +1,292 @@
+{
+  "sql_injection.diff": {
+    "description": "SQL injection via string interpolation in Flask route",
+    "expected_findings": [
+      {
+        "file": "app/routes/users.py",
+        "line_min": 14,
+        "line_max": 16,
+        "category": "security",
+        "severity": "critical",
+        "label": "SQL injection in search_users via f-string query"
+      },
+      {
+        "file": "app/routes/users.py",
+        "line_min": 23,
+        "line_max": 25,
+        "category": "security",
+        "severity": "critical",
+        "label": "SQL injection in get_user via f-string query"
+      }
+    ]
+  },
+  "null_reference.diff": {
+    "description": "Accessing attributes on a None return value without null check",
+    "expected_findings": [
+      {
+        "file": "services/payment.py",
+        "line_min": 24,
+        "line_max": 26,
+        "category": "bug",
+        "severity": "critical",
+        "label": "NoneType subscript on payment_method when user has no payment method"
+      }
+    ]
+  },
+  "off_by_one.diff": {
+    "description": "Off-by-one errors in pagination and batch processing",
+    "expected_findings": [
+      {
+        "file": "utils/pagination.py",
+        "line_min": 16,
+        "line_max": 17,
+        "category": "bug",
+        "severity": "warning",
+        "label": "paginate start index should be (page-1)*page_size for 1-based pages"
+      },
+      {
+        "file": "utils/pagination.py",
+        "line_min": 22,
+        "line_max": 22,
+        "category": "bug",
+        "severity": "warning",
+        "label": "get_page_count uses integer division, misses remainder page"
+      },
+      {
+        "file": "utils/pagination.py",
+        "line_min": 27,
+        "line_max": 28,
+        "category": "bug",
+        "severity": "warning",
+        "label": "get_surrounding_items negative start index causes unexpected slice"
+      }
+    ]
+  },
+  "hardcoded_secret.diff": {
+    "description": "API keys and credentials hardcoded in source code",
+    "expected_findings": [
+      {
+        "file": "config/settings.py",
+        "line_min": 12,
+        "line_max": 12,
+        "category": "security",
+        "severity": "critical",
+        "label": "Hardcoded Stripe secret key"
+      },
+      {
+        "file": "config/settings.py",
+        "line_min": 13,
+        "line_max": 13,
+        "category": "security",
+        "severity": "critical",
+        "label": "Hardcoded OpenAI API key"
+      },
+      {
+        "file": "config/settings.py",
+        "line_min": 14,
+        "line_max": 15,
+        "category": "security",
+        "severity": "critical",
+        "label": "Hardcoded AWS credentials"
+      },
+      {
+        "file": "config/settings.py",
+        "line_min": 18,
+        "line_max": 18,
+        "category": "security",
+        "severity": "critical",
+        "label": "Hardcoded JWT secret"
+      },
+      {
+        "file": "config/settings.py",
+        "line_min": 24,
+        "line_max": 24,
+        "category": "security",
+        "severity": "critical",
+        "label": "Hardcoded SMTP password"
+      }
+    ]
+  },
+  "race_condition.diff": {
+    "description": "TOCTOU race in async check-then-act without locking",
+    "expected_findings": [
+      {
+        "file": "services/counter.py",
+        "line_min": 19,
+        "line_max": 23,
+        "category": "bug",
+        "severity": "critical",
+        "label": "Race condition in check_and_increment: read-await-write without lock"
+      },
+      {
+        "file": "services/counter.py",
+        "line_min": 27,
+        "line_max": 31,
+        "category": "bug",
+        "severity": "critical",
+        "label": "Race condition in transfer: balance check-await-deduct without lock"
+      }
+    ]
+  },
+  "xss_vulnerability.diff": {
+    "description": "Reflected XSS via unescaped user input in HTML response",
+    "expected_findings": [
+      {
+        "file": "app/views/profile.py",
+        "line_min": 10,
+        "line_max": 20,
+        "category": "security",
+        "severity": "critical",
+        "label": "Reflected XSS: username/bio/query injected into HTML without escaping"
+      },
+      {
+        "file": "app/views/profile.py",
+        "line_min": 27,
+        "line_max": 28,
+        "category": "security",
+        "severity": "critical",
+        "label": "Stored XSS: comment and author rendered without escaping"
+      }
+    ]
+  },
+  "buffer_overflow.diff": {
+    "description": "Unsafe C string functions leading to buffer overflow",
+    "expected_findings": [
+      {
+        "file": "native/parser.c",
+        "line_min": 10,
+        "line_max": 11,
+        "category": "security",
+        "severity": "critical",
+        "label": "Buffer overflow: strcpy into fixed-size buffer without bounds check"
+      },
+      {
+        "file": "native/parser.c",
+        "line_min": 17,
+        "line_max": 22,
+        "category": "security",
+        "severity": "critical",
+        "label": "Buffer overflow: unbounded strcpy in tokenize loop"
+      },
+      {
+        "file": "native/parser.c",
+        "line_min": 27,
+        "line_max": 27,
+        "category": "security",
+        "severity": "warning",
+        "label": "Buffer overflow: sprintf without size limit"
+      }
+    ]
+  },
+  "logic_error.diff": {
+    "description": "Wrong operators causing incorrect calculations",
+    "expected_findings": [
+      {
+        "file": "services/pricing.py",
+        "line_min": 35,
+        "line_max": 35,
+        "category": "logic",
+        "severity": "critical",
+        "label": "Multiplies by discount instead of (1 - discount); charges discount amount not discounted price"
+      },
+      {
+        "file": "services/pricing.py",
+        "line_min": 40,
+        "line_max": 40,
+        "category": "logic",
+        "severity": "warning",
+        "label": "Trial eligibility uses OR instead of AND; users with previous trials still qualify if old enough"
+      },
+      {
+        "file": "services/pricing.py",
+        "line_min": 45,
+        "line_max": 45,
+        "category": "logic",
+        "severity": "critical",
+        "label": "Tax calculation subtracts rate from subtotal instead of multiplying"
+      }
+    ]
+  },
+  "missing_validation.diff": {
+    "description": "Missing input validation enabling path traversal and command injection",
+    "expected_findings": [
+      {
+        "file": "api/endpoints.py",
+        "line_min": 14,
+        "line_max": 17,
+        "category": "security",
+        "severity": "critical",
+        "label": "Path traversal: filename from user input used directly in file path"
+      },
+      {
+        "file": "api/endpoints.py",
+        "line_min": 22,
+        "line_max": 23,
+        "category": "security",
+        "severity": "critical",
+        "label": "Path traversal: user-controlled path passed to send_file"
+      },
+      {
+        "file": "api/endpoints.py",
+        "line_min": 36,
+        "line_max": 37,
+        "category": "security",
+        "severity": "critical",
+        "label": "Command injection: user input passed to subprocess with shell=True"
+      },
+      {
+        "file": "api/endpoints.py",
+        "line_min": 27,
+        "line_max": 31,
+        "category": "bug",
+        "severity": "warning",
+        "label": "No validation on email format, age range, or username content"
+      }
+    ]
+  },
+  "insecure_deserialization.diff": {
+    "description": "Untrusted data deserialized via pickle, yaml.load, and marshal",
+    "expected_findings": [
+      {
+        "file": "services/session.py",
+        "line_min": 15,
+        "line_max": 16,
+        "category": "security",
+        "severity": "critical",
+        "label": "Insecure deserialization: pickle.loads on user-controlled cookie data"
+      },
+      {
+        "file": "services/session.py",
+        "line_min": 26,
+        "line_max": 26,
+        "category": "security",
+        "severity": "critical",
+        "label": "Insecure deserialization: yaml.load with unsafe Loader on user input"
+      },
+      {
+        "file": "services/session.py",
+        "line_min": 31,
+        "line_max": 32,
+        "category": "security",
+        "severity": "critical",
+        "label": "Insecure deserialization: marshal.loads on user-submitted bytecode"
+      },
+      {
+        "file": "services/session.py",
+        "line_min": 37,
+        "line_max": 37,
+        "category": "security",
+        "severity": "critical",
+        "label": "Insecure deserialization: pickle.loads on backup blob"
+      },
+      {
+        "file": "services/session.py",
+        "line_min": 42,
+        "line_max": 42,
+        "category": "security",
+        "severity": "critical",
+        "label": "Insecure deserialization: pickle.loads on webhook body"
+      }
+    ]
+  }
+}

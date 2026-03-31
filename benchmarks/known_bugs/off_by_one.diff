@@ -1,0 +1,44 @@
+diff --git a/utils/pagination.py b/utils/pagination.py
+--- a/utils/pagination.py
++++ b/utils/pagination.py
+@@ -1,5 +1,40 @@
+-def paginate(items, page_size):
+-    return items[:page_size]
++from typing import TypeVar, Generic
++
++T = TypeVar("T")
++
++
++def paginate(items: list[T], page: int, page_size: int) -> list[T]:
++    """Return a page of items from the list.
++
++    Args:
++        items: Full list of items.
++        page: 1-based page number.
++        page_size: Number of items per page.
++    """
++    start = page * page_size
++    end = start + page_size
++    return items[start:end]
++
++
++def get_page_count(total_items: int, page_size: int) -> int:
++    """Calculate total number of pages."""
++    return total_items // page_size
++
++
++def get_surrounding_items(items: list[T], index: int, window: int) -> list[T]:
++    """Get items surrounding a given index within a window."""
++    start = index - window
++    end = index + window
++    return items[start:end]
++
++
++def batch_process(items: list[T], batch_size: int) -> list[list[T]]:
++    """Split items into batches."""
++    batches = []
++    for i in range(0, len(items) + 1, batch_size):
++        batch = items[i:i + batch_size]
++        if batch:
++            batches.append(batch)
++    return batches
