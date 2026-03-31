@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 _enabled = False
+_client: Optional["Langfuse"] = None  # type: ignore[name-defined]
 
 
 def init_langfuse() -> bool:
@@ -19,7 +21,7 @@ def init_langfuse() -> bool:
 
     Returns True if Langfuse is active, False otherwise.
     """
-    global _enabled  # noqa: PLW0603
+    global _enabled, _client  # noqa: PLW0603
 
     public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
     secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
@@ -32,13 +34,12 @@ def init_langfuse() -> bool:
         return False
 
     try:
-        from langfuse.decorators import langfuse_context
+        from langfuse import Langfuse
 
-        langfuse_context.configure(
+        _client = Langfuse(
             public_key=public_key,
             secret_key=secret_key,
             host=os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com"),
-            enabled=True,
         )
         _enabled = True
         logger.info("Langfuse tracing enabled")
@@ -56,11 +57,9 @@ def is_enabled() -> bool:
 
 def flush() -> None:
     """Flush any pending Langfuse events.  No-op when disabled."""
-    if not _enabled:
+    if not _enabled or _client is None:
         return
     try:
-        from langfuse.decorators import langfuse_context
-
-        langfuse_context.flush()
+        _client.flush()
     except Exception as exc:
         logger.warning("Langfuse flush failed: %s", exc)

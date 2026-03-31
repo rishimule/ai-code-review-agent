@@ -20,11 +20,12 @@ from src.prompts.review_prompt import format_review_prompt
 logger = logging.getLogger(__name__)
 
 try:
-    from langfuse.decorators import langfuse_context, observe
+    from langfuse import Langfuse, get_client, observe
 except ImportError:
-    langfuse_context = None  # type: ignore[assignment]
+    get_client = None  # type: ignore[assignment]
+    Langfuse = None  # type: ignore[assignment,misc]
 
-    def observe(*args, **kwargs):
+    def observe(*args, **kwargs):  # type: ignore[misc]
         """No-op fallback when langfuse is not installed."""
         if args and callable(args[0]):
             return args[0]
@@ -38,12 +39,34 @@ except ImportError:
 _MODEL_NAME = "llama-3.3-70b-versatile"
 
 
-def _update_trace(**kwargs: Any) -> None:
-    """Safely update the current Langfuse observation; no-op when disabled."""
-    if langfuse_context is None:
+def _langfuse() -> Any:
+    """Return the active Langfuse client, or None when unavailable."""
+    if get_client is None:
+        return None
+    try:
+        return get_client()
+    except Exception:
+        return None
+
+
+def _update_span(**kwargs: Any) -> None:
+    """Safely update the current Langfuse span; no-op when disabled."""
+    client = _langfuse()
+    if client is None:
         return
     try:
-        langfuse_context.update_current_observation(**kwargs)
+        client.update_current_span(**kwargs)
+    except Exception:
+        pass
+
+
+def _update_generation(**kwargs: Any) -> None:
+    """Safely update the current Langfuse generation; no-op when disabled."""
+    client = _langfuse()
+    if client is None:
+        return
+    try:
+        client.update_current_generation(**kwargs)
     except Exception:
         pass
 
@@ -87,7 +110,7 @@ def parse_diff(state: ReviewState) -> ReviewState:
         i += 3
 
     logger.info("Parsed %d file diffs", len(file_diffs))
-    _update_trace(
+    _update_span(
         input={"diff_length": len(raw_diff)},
         output={"file_count": len(file_diffs)},
     )
@@ -114,7 +137,7 @@ def filter_files(state: ReviewState) -> ReviewState:
         len(filtered),
         len(skipped_paths),
     )
-    _update_trace(
+    _update_span(
         input={"total_files": len(file_diffs)},
         output={"kept": len(filtered), "skipped": skipped_paths},
     )
@@ -151,7 +174,7 @@ def _extract_json_array(text: str) -> list[dict[str, Any]]:
     raise json.JSONDecodeError("No JSON array found in response", text, 0)
 
 
-@observe(name="analyze_single_file")
+@observe(name="analyze_single_file", as_type="generation")
 def _analyze_single_file(
     llm: ChatGroq, path: str, diff: str,
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
@@ -176,16 +199,16 @@ def _analyze_single_file(
 
     cost = estimate_cost(_MODEL_NAME, prompt_tokens, completion_tokens)
 
-    _update_trace(
+    _update_generation(
         input={"file_path": path, "diff_length": len(diff)},
         output={"raw_response_length": len(raw_text)},
         model=_MODEL_NAME,
-        usage={
+        usage_details={
             "input": prompt_tokens,
             "output": completion_tokens,
             "total": total_tokens,
         },
-        metadata={"estimated_cost_usd": cost},
+        cost_details={"estimated_cost_usd": cost},
     )
 
     raw_findings = _extract_json_array(raw_text)
@@ -260,16 +283,16 @@ def analyze_files(state: ReviewState) -> ReviewState:
         cost_breakdown["estimated_cost_usd"],
     )
 
-    _update_trace(
+    _update_span(
         input={"file_count": len(filtered_files)},
         output={"findings_count": len(findings), "errors": errors},
-        model=_MODEL_NAME,
-        usage={
-            "input": total_prompt_tokens,
-            "output": total_completion_tokens,
-            "total": total_tokens,
+        metadata={
+            "model": _MODEL_NAME,
+            "prompt_tokens": total_prompt_tokens,
+            "completion_tokens": total_completion_tokens,
+            "total_tokens": total_tokens,
+            "cost_breakdown": cost_breakdown,
         },
-        metadata={"cost_breakdown": cost_breakdown},
     )
 
     return {
@@ -316,7 +339,7 @@ def aggregate(state: ReviewState) -> ReviewState:
     )
 
     logger.info("Aggregated %d findings (est. cost $%.6f)", len(all_findings), cost_estimate)
-    _update_trace(
+    _update_span(
         input={"raw_findings_count": len(raw_findings)},
         output={"total": stats.get("total", 0), "cost_estimate": cost_estimate},
     )
