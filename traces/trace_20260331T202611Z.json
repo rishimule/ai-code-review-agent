@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-03-31T20:26:11.283733+00:00",
+  "pr_url": "https://github.com/rishimule/ai-code-review-agent/pull/1",
+  "model_used": "llama-3.3-70b-versatile",
+  "tokens_used": 22761,
+  "latency_seconds": 56.03596934100642,
+  "findings_count": 67,
+  "stats": {
+    "critical": 31,
+    "security": 26,
+    "warning": 26,
+    "bug": 26,
+    "logic": 6,
+    "performance": 6,
+    "suggestion": 10,
+    "style": 3,
+    "total": 67
+  },
+  "cost": {
+    "model": "llama-3.3-70b-versatile",
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "estimated_cost_usd": 0.0
+  },
+  "errors": []
+}
