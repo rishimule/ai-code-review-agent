@@ -6,9 +6,9 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-agent%20orchestration-green.svg)](https://github.com/langchain-ai/langgraph)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF.svg)](https://github.com/features/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Streamlit](https://img.shields.io/badge/Live%20Demo-Streamlit-FF4B4B.svg)](https://code-review-ai-agent.streamlit.app/)
 
-<!-- TODO: Add demo GIF showing a PR review in action -->
-<!-- ![Demo](docs/demo.gif) -->
+**[Live Dashboard →](https://code-review-ai-agent.streamlit.app/)**
 
 ---
 
@@ -142,8 +142,7 @@ Every pipeline run is traced with [Langfuse](https://langfuse.com), providing vi
 - Finding distribution across severity and category
 - Error tracking for failed parses or API issues
 
-<!-- TODO: Add Langfuse dashboard screenshot -->
-<!-- ![Langfuse Traces](docs/langfuse-traces.png) -->
+Explore traces interactively on the **[live dashboard](https://code-review-ai-agent.streamlit.app/)** (Observability tab).
 
 Traces can also be exported as JSON for the Streamlit dashboard:
 
@@ -162,7 +161,7 @@ python -m src.agent.main --pr-url <URL> --export-trace
 | [Langfuse](https://langfuse.com) | Observability & tracing | Open-source, self-hostable, first-class LangGraph integration via `@observe` |
 | [Pydantic](https://docs.pydantic.dev) | Structured output validation | Type-safe finding models with automatic validation and serialization |
 | [GitHub Actions](https://github.com/features/actions) | CI/CD trigger | Zero infrastructure — runs on PR events without needing a webhook server |
-| [Streamlit](https://streamlit.io) | Demo dashboard | Fastest path from Python to interactive web app for showcasing results |
+| [Streamlit](https://streamlit.io) | [Live dashboard](https://code-review-ai-agent.streamlit.app/) | Fastest path from Python to interactive web app for showcasing results |
 | [httpx](https://www.python-httpx.org) | Async HTTP | Modern async client for GitHub API calls with proper error handling |
 | [pytest](https://pytest.org) | Testing | Async test support, good fixture model for benchmark evaluation tests |
 
@@ -210,8 +209,9 @@ python -m src.eval.compare_models --models llama-3.3-70b-versatile,llama-3.1-8b-
 # Run tests
 pytest
 
-# Launch the dashboard
+# Launch the dashboard locally
 streamlit run dashboard/app.py
+# Or visit the live dashboard: https://code-review-ai-agent.streamlit.app/
 ```
 
 ---
