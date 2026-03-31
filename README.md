@@ -24,26 +24,29 @@ The agent runs as a GitHub Action, analyzes each file in a PR independently usin
 
 ```mermaid
 flowchart LR
-    PR["Pull Request<br/>Opened/Updated"] --> GHA["GitHub Actions<br/>Trigger"]
-    GHA --> FETCH["Fetch PR Diff<br/>(GitHub API)"]
+    PR[Pull Request] --> GHA[GitHub Actions]
+    GHA --> FETCH[Fetch PR Diff]
     FETCH --> PIPELINE
 
-    subgraph PIPELINE["LangGraph Pipeline"]
+    subgraph PIPELINE[LangGraph Pipeline]
         direction LR
-        A["<b>parse_diff</b><br/>Split unified diff<br/>into per-file chunks"] --> B["<b>filter_files</b><br/>Skip non-code files<br/>(.lock, .md, .json)"]
-        B --> C["<b>analyze_files</b><br/>LLM review per file<br/>(Llama 3.3 70B)"]
-        C --> D["<b>aggregate</b><br/>Validate and combine<br/>findings via Pydantic"]
-        D --> E["<b>format_review</b><br/>Render GitHub<br/>markdown comment"]
+        A[parse_diff] --> B[filter_files]
+        B --> C[analyze_files]
+        C --> D[aggregate]
+        D --> E[format_review]
     end
 
-    PIPELINE --> POST["Post Review<br/>Comment on PR"]
-
-    C -.->|@observe| LF["Langfuse<br/>Tracing"]
-    A -.->|@observe| LF
-    B -.->|@observe| LF
-    D -.->|@observe| LF
-    E -.->|@observe| LF
+    PIPELINE --> POST[Post Review Comment]
+    PIPELINE -.-> LF[Langfuse Tracing]
 ```
+
+| Node | What it does |
+|---|---|
+| **parse_diff** | Split unified diff into per-file chunks |
+| **filter_files** | Skip non-code files (.lock, .md, .json, .yaml, images) |
+| **analyze_files** | LLM review per file via Llama 3.3 70B |
+| **aggregate** | Validate and combine findings via Pydantic |
+| **format_review** | Render GitHub markdown comment grouped by severity |
 
 **Pipeline State** flows through a `ReviewState` TypedDict:
 
