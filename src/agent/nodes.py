@@ -14,13 +14,15 @@ from langchain_groq import ChatGroq
 from pydantic import ValidationError
 
 from src.models.findings import ReviewFinding, ReviewSummary, Severity
+from src.observability.cost import estimate_cost, estimate_review_cost
 from src.prompts.review_prompt import format_review_prompt
 
 logger = logging.getLogger(__name__)
 
 try:
-    from langfuse.decorators import observe
+    from langfuse.decorators import langfuse_context, observe
 except ImportError:
+    langfuse_context = None  # type: ignore[assignment]
 
     def observe(*args, **kwargs):
         """No-op fallback when langfuse is not installed."""
@@ -31,6 +33,19 @@ except ImportError:
             return fn
 
         return decorator
+
+
+_MODEL_NAME = "llama-3.3-70b-versatile"
+
+
+def _update_trace(**kwargs: Any) -> None:
+    """Safely update the current Langfuse observation; no-op when disabled."""
+    if langfuse_context is None:
+        return
+    try:
+        langfuse_context.update_current_observation(**kwargs)
+    except Exception:
+        pass
 
 
 SKIP_EXTENSIONS = frozenset({
@@ -56,6 +71,7 @@ class ReviewState(TypedDict, total=False):
     errors: list[str]
 
 
+@observe(name="parse_diff")
 def parse_diff(state: ReviewState) -> ReviewState:
     """Split a unified diff into per-file chunks."""
     raw_diff = state["raw_diff"]
@@ -71,25 +87,36 @@ def parse_diff(state: ReviewState) -> ReviewState:
         i += 3
 
     logger.info("Parsed %d file diffs", len(file_diffs))
+    _update_trace(
+        input={"diff_length": len(raw_diff)},
+        output={"file_count": len(file_diffs)},
+    )
     return {"file_diffs": file_diffs}
 
 
+@observe(name="filter_files")
 def filter_files(state: ReviewState) -> ReviewState:
     """Remove non-code files from the diff set."""
     file_diffs = state["file_diffs"]
     filtered: list[dict[str, str]] = []
+    skipped_paths: list[str] = []
 
     for file_diff in file_diffs:
         ext = PurePosixPath(file_diff["path"]).suffix.lower()
         if ext in SKIP_EXTENSIONS:
             logger.debug("Skipping non-code file: %s", file_diff["path"])
+            skipped_paths.append(file_diff["path"])
             continue
         filtered.append(file_diff)
 
     logger.info(
         "Filtered to %d code files (skipped %d)",
         len(filtered),
-        len(file_diffs) - len(filtered),
+        len(skipped_paths),
+    )
+    _update_trace(
+        input={"total_files": len(file_diffs)},
+        output={"kept": len(filtered), "skipped": skipped_paths},
     )
     return {"filtered_files": filtered}
 
@@ -127,16 +154,39 @@ def _extract_json_array(text: str) -> list[dict[str, Any]]:
 @observe(name="analyze_single_file")
 def _analyze_single_file(
     llm: ChatGroq, path: str, diff: str,
-) -> tuple[list[dict[str, Any]], int]:
-    """Analyze a single file diff with the LLM."""
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Analyze a single file diff with the LLM.
+
+    Returns (validated_findings, token_usage_dict).
+    """
     prompt = format_review_prompt(file_diff=diff, file_path=path)
     response = llm.invoke(prompt)
     raw_text = response.content
 
-    token_count = 0
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
     usage = getattr(response, "usage_metadata", None)
     if usage:
-        token_count = usage.get("total_tokens", 0)
+        prompt_tokens = usage.get("input_tokens", 0)
+        completion_tokens = usage.get("output_tokens", 0)
+        total_tokens = usage.get("total_tokens", 0) or (
+            prompt_tokens + completion_tokens
+        )
+
+    cost = estimate_cost(_MODEL_NAME, prompt_tokens, completion_tokens)
+
+    _update_trace(
+        input={"file_path": path, "diff_length": len(diff)},
+        output={"raw_response_length": len(raw_text)},
+        model=_MODEL_NAME,
+        usage={
+            "input": prompt_tokens,
+            "output": completion_tokens,
+            "total": total_tokens,
+        },
+        metadata={"estimated_cost_usd": cost},
+    )
 
     raw_findings = _extract_json_array(raw_text)
 
@@ -148,7 +198,12 @@ def _analyze_single_file(
         except ValidationError as ve:
             logger.warning("Invalid finding for %s: %s", path, ve)
 
-    return validated, token_count
+    token_usage = {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+    }
+    return validated, token_usage
 
 
 @observe(name="analyze_files")
@@ -157,10 +212,11 @@ def analyze_files(state: ReviewState) -> ReviewState:
     filtered_files = state["filtered_files"]
     findings: list[dict[str, Any]] = []
     errors: list[str] = []
-    total_tokens = 0
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
 
     llm = ChatGroq(
-        model="llama-3.3-70b-versatile",
+        model=_MODEL_NAME,
         temperature=0,
         api_key=os.environ.get("GROQ_API_KEY"),
     )
@@ -173,9 +229,10 @@ def analyze_files(state: ReviewState) -> ReviewState:
         logger.info("Analyzing file: %s", path)
 
         try:
-            file_findings, tokens = _analyze_single_file(llm, path, diff)
+            file_findings, token_usage = _analyze_single_file(llm, path, diff)
             findings.extend(file_findings)
-            total_tokens += tokens
+            total_prompt_tokens += token_usage["prompt_tokens"]
+            total_completion_tokens += token_usage["completion_tokens"]
             logger.info("Found %d issues in %s", len(file_findings), path)
         except json.JSONDecodeError as exc:
             msg = f"Failed to parse LLM JSON for {path}: {exc}"
@@ -191,15 +248,44 @@ def analyze_files(state: ReviewState) -> ReviewState:
             time.sleep(1)
 
     elapsed = time.monotonic() - start_time
-    logger.info("Analysis complete in %.2fs, %d total tokens", elapsed, total_tokens)
+    total_tokens = total_prompt_tokens + total_completion_tokens
+    cost_breakdown = estimate_review_cost(
+        _MODEL_NAME, total_prompt_tokens, total_completion_tokens,
+    )
+
+    logger.info(
+        "Analysis complete in %.2fs, %d total tokens (est. $%.6f)",
+        elapsed,
+        total_tokens,
+        cost_breakdown["estimated_cost_usd"],
+    )
+
+    _update_trace(
+        input={"file_count": len(filtered_files)},
+        output={"findings_count": len(findings), "errors": errors},
+        model=_MODEL_NAME,
+        usage={
+            "input": total_prompt_tokens,
+            "output": total_completion_tokens,
+            "total": total_tokens,
+        },
+        metadata={"cost_breakdown": cost_breakdown},
+    )
 
     return {
         "findings": findings,
-        "summary": {"tokens_used": total_tokens, "latency_seconds": elapsed},
+        "summary": {
+            "tokens_used": total_tokens,
+            "prompt_tokens": total_prompt_tokens,
+            "completion_tokens": total_completion_tokens,
+            "latency_seconds": elapsed,
+            "cost_breakdown": cost_breakdown,
+        },
         "errors": errors,
     }
 
 
+@observe(name="aggregate")
 def aggregate(state: ReviewState) -> ReviewState:
     """Combine findings into a ReviewSummary."""
     raw_findings = state["findings"]
@@ -217,19 +303,27 @@ def aggregate(state: ReviewState) -> ReviewState:
         stats[cat] = stats.get(cat, 0) + 1
     stats["total"] = len(all_findings)
 
+    cost_breakdown = partial.get("cost_breakdown", {})
+    cost_estimate = cost_breakdown.get("estimated_cost_usd", 0.0)
+
     summary = ReviewSummary(
         findings=all_findings,
         stats=stats,
-        model_used="llama-3.3-70b-versatile",
+        model_used=_MODEL_NAME,
         tokens_used=partial.get("tokens_used", 0),
         latency_seconds=partial.get("latency_seconds", 0.0),
-        cost_estimate=0.0,
+        cost_estimate=cost_estimate,
     )
 
-    logger.info("Aggregated %d findings", len(all_findings))
+    logger.info("Aggregated %d findings (est. cost $%.6f)", len(all_findings), cost_estimate)
+    _update_trace(
+        input={"raw_findings_count": len(raw_findings)},
+        output={"total": stats.get("total", 0), "cost_estimate": cost_estimate},
+    )
     return {"summary": summary.model_dump()}
 
 
+@observe(name="format_review")
 def format_review(state: ReviewState) -> ReviewState:
     """Convert ReviewSummary to GitHub-formatted markdown."""
     summary = ReviewSummary.model_validate(state["summary"])
@@ -249,7 +343,8 @@ def format_review(state: ReviewState) -> ReviewState:
     lines.append(
         f"Model: `{summary.model_used}` | "
         f"Tokens: {summary.tokens_used} | "
-        f"Time: {summary.latency_seconds:.1f}s"
+        f"Time: {summary.latency_seconds:.1f}s | "
+        f"Est. cost: ${summary.cost_estimate:.4f}"
     )
     lines.append("")
 
