@@ -62,6 +62,14 @@ def main() -> int:
         repo = get_env("REPO_FULL_NAME")
         pr_url = f"https://github.com/{repo}/pull/{pr_number}"
 
+        groq_key = os.environ.get("GROQ_API_KEY")
+        if not groq_key:
+            logger.error(
+                "GROQ_API_KEY is not set — add it as a repository secret "
+                "(Settings > Secrets and variables > Actions)"
+            )
+            return 0
+
         logger.info("Starting review for %s", pr_url)
 
         # Fetch the PR diff
