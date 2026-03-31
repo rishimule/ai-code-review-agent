@@ -398,7 +398,14 @@ def format_review(state: ReviewState) -> ReviewState:
                 lines.append(f"  > **Fix:** {finding.suggested_fix}")
             lines.append("")
 
-    if not summary.findings:
+    errors = state.get("errors", [])
+    if errors:
+        lines.append("### Errors")
+        lines.append("")
+        for err in errors:
+            lines.append(f"- {err}")
+        lines.append("")
+    elif not summary.findings:
         lines.append("No issues found. The code looks good!")
         lines.append("")
 
