@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import html
 import json
+import logging
 import os
 import sys
 import time
 from pathlib import Path
 
 import streamlit as st
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -556,6 +559,112 @@ def load_json(path: Path) -> dict | list | None:
         return None
 
 
+def _get_langfuse_keys() -> tuple[str, str, str] | None:
+    """Return (public_key, secret_key, host) from env vars or Streamlit secrets."""
+    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+    secret_key = os.environ.get("LANGFUSE_SECRET_KEY", "")
+    host = os.environ.get("LANGFUSE_HOST", "")
+
+    if not public_key or not secret_key:
+        try:
+            public_key = st.secrets.get("LANGFUSE_PUBLIC_KEY", public_key)
+            secret_key = st.secrets.get("LANGFUSE_SECRET_KEY", secret_key)
+            host = st.secrets.get("LANGFUSE_HOST", host)
+        except Exception:
+            pass
+
+    if not public_key or not secret_key:
+        return None
+    return public_key, secret_key, host or "https://cloud.langfuse.com"
+
+
+@st.cache_data(ttl=300, show_spinner="Fetching traces from Langfuse...")
+def fetch_langfuse_traces() -> list[dict]:
+    """Fetch recent traces from the Langfuse API and normalize to dashboard format."""
+    keys = _get_langfuse_keys()
+    if not keys:
+        return []
+
+    public_key, secret_key, host = keys
+    try:
+        from langfuse.api import LangfuseAPI
+
+        api = LangfuseAPI(
+            base_url=host,
+            username=public_key,
+            password=secret_key,
+            x_langfuse_sdk_name="python",
+            x_langfuse_public_key=public_key,
+        )
+        response = api.trace.list(limit=50, order_by="timestamp")
+        traces: list[dict] = []
+        for t in response.data:
+            # Each @observe node creates a top-level trace. Gather observations
+            # for the most informative per-trace data (tokens, model, cost).
+            obs_input_tokens = 0
+            obs_output_tokens = 0
+            obs_model = ""
+            for obs in (t.observations or []):
+                if isinstance(obs, str):
+                    # observations may be IDs only in the list response
+                    break
+                usage = getattr(obs, "usage", None)
+                if usage:
+                    obs_input_tokens += getattr(usage, "input", 0) or 0
+                    obs_output_tokens += getattr(usage, "output", 0) or 0
+                if not obs_model and getattr(obs, "model", None):
+                    obs_model = obs.model
+
+            # Extract fields from trace input/output when available
+            t_input = t.input if isinstance(t.input, dict) else {}
+            t_output = t.output if isinstance(t.output, dict) else {}
+
+            pr_url = t_input.get("pr_url", "")
+            summary = t_output.get("summary", {})
+            if isinstance(summary, dict):
+                stats = summary.get("stats", {})
+                model_used = summary.get("model_used", obs_model)
+                tokens_used = summary.get("tokens_used", 0)
+            else:
+                stats = {}
+                model_used = obs_model
+                tokens_used = 0
+
+            total_tokens = tokens_used or (obs_input_tokens + obs_output_tokens)
+
+            traces.append({
+                "timestamp": t.timestamp.isoformat() if t.timestamp else "",
+                "name": t.name or "",
+                "pr_url": pr_url,
+                "model_used": model_used,
+                "tokens_used": total_tokens,
+                "latency_seconds": t.latency or 0.0,
+                "findings_count": stats.get("total", 0),
+                "stats": stats,
+                "cost": {"estimated_cost_usd": t.total_cost or 0.0},
+                "errors": [],
+                "langfuse_id": t.id,
+            })
+
+        return traces
+    except Exception as exc:
+        logger.warning("Failed to fetch Langfuse traces: %s", exc)
+        return []
+
+
+def _load_local_traces() -> list[dict]:
+    """Load trace JSON files from the local traces/ directory."""
+    if not TRACES_DIR.exists():
+        return []
+    traces = []
+    for p in sorted(TRACES_DIR.glob("trace_*.json"), reverse=True):
+        try:
+            traces.append(json.loads(p.read_text()))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return traces
+
+
 SEVERITY_COLORS = {
     "critical": "var(--accent-red)",
     "warning": "var(--accent-orange)",
@@ -1057,22 +1166,30 @@ with tab_obs:
         "Trace data from pipeline runs \u2014 latency per step, token usage, and cost.",
     )
 
-    traces: list[dict] = []
-    if TRACES_DIR.exists():
-        for p in sorted(TRACES_DIR.glob("trace_*.json"), reverse=True):
-            try:
-                traces.append(json.loads(p.read_text()))
-            except (json.JSONDecodeError, OSError):
-                pass
+    # Langfuse is the primary source; local JSON files are the fallback.
+    trace_source = "local"
+    traces: list[dict] = fetch_langfuse_traces()
+    if traces:
+        trace_source = "langfuse"
+    else:
+        traces = _load_local_traces()
 
     if traces:
-        section_header(f"Recent Traces ({len(traces)})")
+        source_label = (
+            "Langfuse Cloud" if trace_source == "langfuse" else "Local Export"
+        )
+        section_header(
+            f"Recent Traces ({len(traces)})",
+            f"Source: {source_label}"
+            + (" \u2014 cached for 5 min" if trace_source == "langfuse" else ""),
+        )
 
         trace_rows = [
             {
                 "Timestamp": t.get("timestamp", "")[:19],
-                "PR": t.get("pr_url", "")[-50:],
-                "Model": t.get("model_used", ""),
+                "Node": t.get("name", "") or "\u2014",
+                "PR": t.get("pr_url", "")[-50:] or "\u2014",
+                "Model": t.get("model_used", "") or "\u2014",
                 "Findings": t.get("findings_count", 0),
                 "Tokens": t.get("tokens_used", 0),
                 "Latency (s)": round(t.get("latency_seconds", 0), 1),
@@ -1088,7 +1205,7 @@ with tab_obs:
             range(len(display_traces)),
             format_func=lambda i: (
                 f"{display_traces[i].get('timestamp', '')[:19]} \u2014 "
-                f"{display_traces[i].get('pr_url', '')[-50:]}"
+                f"{display_traces[i].get('name', '') or display_traces[i].get('pr_url', '')[-50:]}"
             ),
         )
         trace = display_traces[idx]
@@ -1101,7 +1218,7 @@ with tab_obs:
         ])
 
         cost = trace.get("cost", {})
-        if cost:
+        if cost and cost.get("prompt_tokens"):
             section_header("Token Breakdown")
             render_metric_row([
                 {"label": "Prompt Tokens", "value": f"{int(cost.get('prompt_tokens', 0)):,}", "accent": "var(--accent-blue)"},
@@ -1126,40 +1243,21 @@ with tab_obs:
 
         with st.expander("Raw Trace JSON"):
             st.json(trace)
+
+        if trace.get("langfuse_id"):
+            keys = _get_langfuse_keys()
+            if keys:
+                host = keys[2].rstrip("/")
+                st.markdown(
+                    f"[View in Langfuse]({host}/trace/{trace['langfuse_id']})",
+                )
     else:
-        info_banner("No trace data found. Run a review with --export-trace to generate traces.", "info")
+        info_banner(
+            "No trace data found. Configure LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY "
+            "to pull traces from Langfuse, or run a review with --export-trace.",
+            "info",
+        )
         st.code("python -m src.agent.main --pr-url <URL> --export-trace", language="bash")
-
-        section_header("Sample Trace", "This is what a trace record looks like.")
-
-        _sample_trace = {
-            "timestamp": "2026-03-31T12:00:00+00:00",
-            "pr_url": "https://github.com/owner/repo/pull/42",
-            "model_used": "llama-3.3-70b-versatile",
-            "tokens_used": 8500,
-            "latency_seconds": 12.3,
-            "findings_count": 5,
-            "stats": {
-                "total": 5, "critical": 2, "warning": 2, "suggestion": 1,
-                "security": 3, "bug": 1, "style": 1,
-            },
-            "cost": {
-                "model": "llama-3.3-70b-versatile",
-                "prompt_tokens": 6200, "completion_tokens": 2300,
-                "total_tokens": 8500, "estimated_cost_usd": 0.005477,
-            },
-            "errors": [],
-        }
-
-        render_metric_row([
-            {"label": "Total Tokens", "value": f"{_sample_trace['tokens_used']:,}", "accent": "var(--accent-purple)"},
-            {"label": "Latency", "value": f"{_sample_trace['latency_seconds']:.1f}s", "accent": "var(--accent-blue)"},
-            {"label": "Findings", "value": str(_sample_trace["findings_count"]), "accent": "var(--accent-orange)"},
-            {"label": "Est. Cost", "value": f"${_sample_trace['cost']['estimated_cost_usd']:.6f}", "accent": "var(--accent-green)"},
-        ])
-
-        with st.expander("Sample JSON"):
-            st.json(_sample_trace)
 
 # ===================================================================
 # TAB 5 — Architecture
