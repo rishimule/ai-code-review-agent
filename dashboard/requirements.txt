@@ -1,0 +1,12 @@
+# Streamlit Cloud deployment dependencies
+# (separate from pyproject.toml for standalone dashboard deployment)
+
+streamlit>=1.30.0
+
+# Core pipeline deps (needed for live demo)
+langgraph>=0.2.0
+langchain-groq>=0.2.0
+langfuse>=2.0.0
+pydantic>=2.0.0
+httpx>=0.27.0
+python-dotenv>=1.0.0

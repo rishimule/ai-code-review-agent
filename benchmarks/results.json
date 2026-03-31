@@ -1,0 +1,162 @@
+{
+  "aggregate": {
+    "precision": 0.6818,
+    "recall": 0.5000,
+    "f1": 0.5769,
+    "false_positive_rate": 0.3182,
+    "true_positives": 15,
+    "false_positives": 7,
+    "false_negatives": 15,
+    "total_latency_seconds": 94.7,
+    "total_tokens": 52340
+  },
+  "per_category": {
+    "bug": {
+      "total": 6,
+      "detected": 3,
+      "accuracy": 0.5
+    },
+    "logic": {
+      "total": 3,
+      "detected": 2,
+      "accuracy": 0.6667
+    },
+    "security": {
+      "total": 21,
+      "detected": 10,
+      "accuracy": 0.4762
+    }
+  },
+  "per_benchmark": [
+    {
+      "diff": "buffer_overflow.diff",
+      "tp": 2,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.6667,
+      "f1": 0.8,
+      "latency_s": 8.2,
+      "tokens": 4120,
+      "errors": [],
+      "missed": ["Buffer overflow: sprintf without size limit"]
+    },
+    {
+      "diff": "hardcoded_secret.diff",
+      "tp": 3,
+      "fp": 1,
+      "fn": 2,
+      "precision": 0.75,
+      "recall": 0.6,
+      "f1": 0.6667,
+      "latency_s": 7.9,
+      "tokens": 4580,
+      "errors": [],
+      "missed": ["Hardcoded JWT secret", "Hardcoded SMTP password"]
+    },
+    {
+      "diff": "insecure_deserialization.diff",
+      "tp": 3,
+      "fp": 1,
+      "fn": 2,
+      "precision": 0.75,
+      "recall": 0.6,
+      "f1": 0.6667,
+      "latency_s": 9.1,
+      "tokens": 5230,
+      "errors": [],
+      "missed": ["Insecure deserialization: pickle.loads on backup blob", "Insecure deserialization: pickle.loads on webhook body"]
+    },
+    {
+      "diff": "logic_error.diff",
+      "tp": 2,
+      "fp": 1,
+      "fn": 1,
+      "precision": 0.6667,
+      "recall": 0.6667,
+      "f1": 0.6667,
+      "latency_s": 8.5,
+      "tokens": 4890,
+      "errors": [],
+      "missed": ["Trial eligibility uses OR instead of AND"]
+    },
+    {
+      "diff": "missing_validation.diff",
+      "tp": 2,
+      "fp": 1,
+      "fn": 2,
+      "precision": 0.6667,
+      "recall": 0.5,
+      "f1": 0.5714,
+      "latency_s": 10.3,
+      "tokens": 5670,
+      "errors": [],
+      "missed": ["Path traversal: user-controlled path passed to send_file", "No validation on email format, age range, or username content"]
+    },
+    {
+      "diff": "null_reference.diff",
+      "tp": 0,
+      "fp": 1,
+      "fn": 1,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "latency_s": 6.4,
+      "tokens": 3210,
+      "errors": [],
+      "missed": ["NoneType subscript on payment_method when user has no payment method"]
+    },
+    {
+      "diff": "off_by_one.diff",
+      "tp": 1,
+      "fp": 0,
+      "fn": 2,
+      "precision": 1.0,
+      "recall": 0.3333,
+      "f1": 0.5,
+      "latency_s": 8.8,
+      "tokens": 4780,
+      "errors": [],
+      "missed": ["get_page_count uses integer division, misses remainder page", "get_surrounding_items negative start index causes unexpected slice"]
+    },
+    {
+      "diff": "race_condition.diff",
+      "tp": 0,
+      "fp": 1,
+      "fn": 2,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "latency_s": 7.6,
+      "tokens": 4120,
+      "errors": [],
+      "missed": ["Race condition in check_and_increment", "Race condition in transfer"]
+    },
+    {
+      "diff": "sql_injection.diff",
+      "tp": 1,
+      "fp": 0,
+      "fn": 1,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1": 0.6667,
+      "latency_s": 9.7,
+      "tokens": 5340,
+      "errors": [],
+      "missed": ["SQL injection in get_user via f-string query"]
+    },
+    {
+      "diff": "xss_vulnerability.diff",
+      "tp": 1,
+      "fp": 1,
+      "fn": 1,
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1": 0.5,
+      "latency_s": 18.2,
+      "tokens": 10400,
+      "errors": [],
+      "missed": ["Stored XSS: comment and author rendered without escaping"]
+    }
+  ]
+}
