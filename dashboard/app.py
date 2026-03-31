@@ -969,6 +969,23 @@ with tab_compare:
 
     comparison_data = load_json(MODEL_COMPARISON_PATH)
 
+    # Fall back to results.json as a single-model entry
+    if not comparison_data:
+        single = load_json(RESULTS_PATH)
+        if single and "aggregate" in single:
+            model_name = single.get("aggregate", {}).get("model", "llama-3.3-70b-versatile")
+            # Try to get model name from trace data if available
+            if TRACES_DIR.exists():
+                for tp in sorted(TRACES_DIR.glob("trace_*.json"), reverse=True):
+                    try:
+                        td = json.loads(tp.read_text())
+                        if td.get("model_used"):
+                            model_name = td["model_used"]
+                            break
+                    except (json.JSONDecodeError, OSError):
+                        pass
+            comparison_data = {model_name: single}
+
     if comparison_data:
         rows = []
         for model, data in comparison_data.items():
