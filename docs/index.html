@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Code Review Agent — Autonomous PR Review with LangGraph</title>
+  <meta name="description" content="An autonomous AI agent that reviews GitHub PRs for bugs, security vulnerabilities, and code quality issues — powered by LangGraph + Llama 3.3 70B, with honest evaluation benchmarks.">
+  <meta property="og:title" content="AI Code Review Agent">
+  <meta property="og:description" content="Autonomous PR review with LangGraph, evaluation benchmarks, and full observability.">
+  <meta property="og:type" content="website">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Prism.js (Tomorrow Night theme) -->
+  <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ======== Navigation ======== -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <div class="nav-logo-icon">&#60;/&#62;</div>
+        AI Code Review Agent
+      </a>
+      <ul class="nav-links">
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#pipeline">Pipeline</a></li>
+        <li><a href="#evaluation">Evaluation</a></li>
+        <li><a href="#limitations">Limitations</a></li>
+        <li><a href="#cicd">CI/CD</a></li>
+        <li><a href="#tech-stack">Stack</a></li>
+      </ul>
+      <button class="nav-hamburger" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ======== Hero ======== -->
+  <section class="hero" id="hero">
+    <div class="hero-bg">
+      <div class="hero-orb hero-orb-1"></div>
+      <div class="hero-orb hero-orb-2"></div>
+      <div class="hero-orb hero-orb-3"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge" data-animate="fade-up">
+        <span class="hero-badge-dot"></span>
+        Portfolio Project &mdash; LLM Agent Engineering
+      </div>
+      <h1 data-animate="fade-up" data-delay="100">AI Code Review Agent</h1>
+      <p class="hero-description" data-animate="fade-up" data-delay="200">
+        An autonomous agent that reviews GitHub Pull Requests for bugs, security
+        vulnerabilities, and code quality issues &mdash; powered by LangGraph + Llama&nbsp;3.3&nbsp;70B
+        with honest evaluation benchmarks and full observability.
+      </p>
+      <div class="hero-buttons" data-animate="fade-up" data-delay="300">
+        <a href="https://code-review-ai-agent.streamlit.app/" target="_blank" rel="noopener" class="btn btn-primary">
+          &#9654; Live Demo
+        </a>
+        <a href="https://github.com/rishimule/ai-code-review-agent" target="_blank" rel="noopener" class="btn btn-secondary">
+          &#9733; View on GitHub
+        </a>
+      </div>
+      <div class="hero-stats" data-animate="fade-up" data-delay="400">
+        <div class="stat-card">
+          <div class="stat-value">68.2%</div>
+          <div class="stat-label">Precision</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">5 Nodes</div>
+          <div class="stat-label">LangGraph Pipeline</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">$0.031</div>
+          <div class="stat-label">Per Review</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">10</div>
+          <div class="stat-label">Benchmarks</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== Architecture ======== -->
+  <section class="section section-alt" id="architecture">
+    <div class="container">
+      <div class="section-label" data-animate="fade-up">Architecture</div>
+      <h2 class="section-title" data-animate="fade-up" data-delay="100">End-to-End Pipeline</h2>
+      <p class="section-subtitle" data-animate="fade-up" data-delay="150">
+        A 5-node LangGraph StateGraph that takes a PR diff in and produces a structured
+        review comment out. Every node is traced with Langfuse for full observability.
+      </p>
+
+      <!-- Pipeline Diagram -->
+      <div class="pipeline-diagram" data-animate="fade-up" data-delay="200">
+        <div class="pipeline-node">
+          <div class="pipeline-node-box">Pull Request</div>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-node">
+          <div class="pipeline-node-box">GitHub Actions</div>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-group">
+          <span class="pipeline-group-label">LangGraph Pipeline</span>
+          <div class="pipeline-node">
+            <div class="pipeline-node-box">parse_diff</div>
+            <div class="pipeline-node-desc">Split into per-file chunks</div>
+          </div>
+          <div class="pipeline-arrow"></div>
+          <div class="pipeline-node">
+            <div class="pipeline-node-box">filter_files</div>
+            <div class="pipeline-node-desc">Skip non-code files</div>
+          </div>
+          <div class="pipeline-arrow"></div>
+          <div class="pipeline-node">
+            <div class="pipeline-node-box">analyze_files</div>
+            <div class="pipeline-node-desc">LLM review per file</div>
+          </div>
+          <div class="pipeline-arrow"></div>
+          <div class="pipeline-node">
+            <div class="pipeline-node-box">aggregate</div>
+            <div class="pipeline-node-desc">Pydantic validation</div>
+          </div>
+          <div class="pipeline-arrow"></div>
+          <div class="pipeline-node">
+            <div class="pipeline-node-box">format_review</div>
+            <div class="pipeline-node-desc">Markdown output</div>
+          </div>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-node">
+          <div class="pipeline-node-box">Post Comment</div>
+        </div>
+      </div>
+
+      <!-- Graph Code -->
+      <div data-animate="fade-up" data-delay="250">
+        <div class="code-label">src/agent/graph.py</div>
+        <pre><code class="language-python">def build_review_graph() -> StateGraph:
+    """Build and compile the code review LangGraph pipeline."""
+    graph = StateGraph(ReviewState)
+
+    graph.add_node("parse_diff", parse_diff)
+    graph.add_node("filter_files", filter_files)
+    graph.add_node("analyze_files", analyze_files)
+    graph.add_node("aggregate", aggregate)
+    graph.add_node("format_review", format_review)
+
+    graph.set_entry_point("parse_diff")
+    graph.add_edge("parse_diff", "filter_files")
+    graph.add_edge("filter_files", "analyze_files")
+    graph.add_edge("analyze_files", "aggregate")
+    graph.add_edge("aggregate", "format_review")
+    graph.add_edge("format_review", END)
+
+    return graph.compile()</code></pre>
+      </div>
+
+      <!-- State TypedDict -->
+      <div data-animate="fade-up" data-delay="300" style="margin-top: 24px;">
+        <div class="code-label">Pipeline State</div>
+        <pre><code class="language-python">class ReviewState(TypedDict, total=False):
+    """State passed through the LangGraph review pipeline."""
+    pr_url: str
+    raw_diff: str
+    file_diffs: list[dict[str, str]]
+    filtered_files: list[dict[str, str]]
+    findings: list[dict[str, Any]]
+    summary: dict[str, Any]
+    formatted_review: str
+    errors: list[str]</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== How It Works (Pipeline Nodes) ======== -->
+  <section class="section" id="pipeline">
+    <div class="container">
+      <div class="section-label" data-animate="fade-up">How It Works</div>
+      <h2 class="section-title" data-animate="fade-up" data-delay="100">Five Nodes, One Review</h2>
+      <p class="section-subtitle" data-animate="fade-up" data-delay="150">
+        Each node in the pipeline has a single responsibility. The state flows linearly
+        from raw diff to formatted markdown, with Pydantic validation at every boundary.
+      </p>
+
+      <div class="node-cards">
+        <!-- Node 1: parse_diff -->
+        <div class="glass-card node-card" data-animate="fade-up" data-delay="100">
+          <div class="node-card-header">
+            <div class="node-number">Node 1</div>
+            <div class="node-name">parse_diff</div>
+            <p class="node-desc">Splits the unified diff into per-file chunks using a regex that matches <code>diff --git</code> headers.</p>
+          </div>
+          <div class="node-card-body">
+            <pre><code class="language-python">_DIFF_HEADER_RE = re.compile(
+    r"^diff --git a/(.+?) b/(.+)$", re.MULTILINE
+)
+
+@observe(name="parse_diff")
+def parse_diff(state: ReviewState) -> ReviewState:
+    raw_diff = state["raw_diff"]
+    file_diffs: list[dict[str, str]] = []
+
+    splits = _DIFF_HEADER_RE.split(raw_diff)
+    i = 1
+    while i + 2 < len(splits):
+        b_path = splits[i + 1]
+        chunk = splits[i + 2]
+        file_diffs.append({"path": b_path, "diff": chunk.strip()})
+        i += 3
+
+    return {"file_diffs": file_diffs}</code></pre>
+          </div>
+        </div>
+
+        <!-- Node 2: filter_files -->
+        <div class="glass-card node-card" data-animate="fade-up" data-delay="100">
+          <div class="node-card-header">
+            <div class="node-number">Node 2</div>
+            <div class="node-name">filter_files</div>
+            <p class="node-desc">Removes non-code files like lockfiles, images, fonts, and config from the analysis set.</p>
+          </div>
+          <div class="node-card-body">
+            <pre><code class="language-python">SKIP_EXTENSIONS = frozenset({
+    ".lock", ".md", ".json", ".yaml", ".yml", ".toml",
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+    ".woff", ".woff2", ".ttf", ".eot",
+    ".pyc", ".pyo", ".so", ".dll",
+})
+
+@observe(name="filter_files")
+def filter_files(state: ReviewState) -> ReviewState:
+    filtered = []
+    for file_diff in state["file_diffs"]:
+        ext = PurePosixPath(file_diff["path"]).suffix.lower()
+        if ext not in SKIP_EXTENSIONS:
+            filtered.append(file_diff)
+    return {"filtered_files": filtered}</code></pre>
+          </div>
+        </div>
+
+        <!-- Node 3: analyze_files -->
+        <div class="glass-card node-card" data-animate="fade-up" data-delay="100">
+          <div class="node-card-header">
+            <div class="node-number">Node 3</div>
+            <div class="node-name">analyze_files</div>
+            <p class="node-desc">Sends each file to Llama&nbsp;3.3&nbsp;70B via Groq with a structured prompt, then extracts findings with a 3-tier JSON fallback.</p>
+          </div>
+          <div class="node-card-body">
+            <pre><code class="language-python">def _extract_json_array(text: str) -> list[dict[str, Any]]:
+    """Extract a JSON array from LLM output with fallback strategies."""
+    stripped = text.strip()
+
+    # Strategy 1: direct parse
+    if stripped.startswith("["):
+        try:
+            return json.loads(stripped)
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 2: extract from markdown code fences
+    fence_match = re.search(
+        r"```(?:json)?\s*\n?(.*?)```", stripped, re.DOTALL
+    )
+    if fence_match:
+        try:
+            return json.loads(fence_match.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 3: find any JSON array in the text
+    array_match = re.search(r"\[.*]", stripped, re.DOTALL)
+    if array_match:
+        try:
+            return json.loads(array_match.group(0))
+        except json.JSONDecodeError:
+            pass
+
+    raise json.JSONDecodeError("No JSON array found", text, 0)</code></pre>
+          </div>
+        </div>
+
+        <!-- Callout: Resilience Pattern -->
+        <div class="callout" data-animate="fade-up" data-delay="100">
+          <div class="callout-title">Resilience Pattern: 3-Tier JSON Extraction</div>
+          <p>
+            LLMs don't always return clean JSON. The extraction pipeline handles three common
+            failure modes: raw JSON arrays, JSON wrapped in markdown fences, and JSON buried
+            in explanatory text. Each strategy falls through to the next, with Pydantic
+            validation as a final gate.
+          </p>
+        </div>
+
+        <!-- Node 4: aggregate -->
+        <div class="glass-card node-card" data-animate="fade-up" data-delay="100">
+          <div class="node-card-header">
+            <div class="node-number">Node 4</div>
+            <div class="node-name">aggregate</div>
+            <p class="node-desc">Validates raw findings through Pydantic models and computes statistics by severity and category.</p>
+          </div>
+          <div class="node-card-body">
+            <pre><code class="language-python">@observe(name="aggregate")
+def aggregate(state: ReviewState) -> ReviewState:
+    raw_findings = state["findings"]
+
+    all_findings: list[ReviewFinding] = []
+    for item in raw_findings:
+        all_findings.append(ReviewFinding.model_validate(item))
+
+    stats: dict[str, int] = {}
+    for finding in all_findings:
+        sev = finding.severity.value
+        cat = finding.category.value
+        stats[sev] = stats.get(sev, 0) + 1
+        stats[cat] = stats.get(cat, 0) + 1
+    stats["total"] = len(all_findings)
+
+    summary = ReviewSummary(
+        findings=all_findings, stats=stats,
+        model_used=_MODEL_NAME,
+        tokens_used=partial.get("tokens_used", 0),
+        # ...
+    )
+    return {"summary": summary.model_dump()}</code></pre>
+          </div>
+        </div>
+
+        <!-- Node 5: format_review -->
+        <div class="glass-card node-card" data-animate="fade-up" data-delay="100">
+          <div class="node-card-header">
+            <div class="node-number">Node 5</div>
+            <div class="node-name">format_review</div>
+            <p class="node-desc">Converts the validated summary into GitHub-flavored markdown, grouped by severity with icons.</p>
+          </div>
+          <div class="node-card-body">
+            <pre><code class="language-python">severity_order = [Severity.CRITICAL, Severity.WARNING, Severity.SUGGESTION]
+severity_icons = {
+    Severity.CRITICAL: "&#x1f534;",
+    Severity.WARNING:  "&#x1f7e1;",
+    Severity.SUGGESTION: "&#x1f535;",
+}
+
+for severity in severity_order:
+    matching = [f for f in summary.findings if f.severity == severity]
+    if not matching:
+        continue
+
+    lines.append(f"### {severity_icons[severity]} {severity.value.title()}")
+    for finding in matching:
+        lines.append(
+            f"- **{finding.file_path}:{finding.line_number}** "
+            f"[{finding.category.value}] "
+            f"(confidence: {finding.confidence:.0%})"
+        )
+        lines.append(f"  {finding.message}")
+        if finding.suggested_fix:
+            lines.append(f"  > **Fix:** {finding.suggested_fix}")</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Structured Output -->
+      <div style="margin-top: 64px;">
+        <h3 class="section-title" data-animate="fade-up" style="font-size: 1.6rem;">Structured Output</h3>
+        <p class="section-subtitle" data-animate="fade-up" data-delay="100">
+          Every LLM finding is validated against a Pydantic model with strict type constraints.
+        </p>
+
+        <div data-animate="fade-up" data-delay="150">
+          <div class="code-label">src/models/findings.py</div>
+          <pre><code class="language-python">class Severity(str, enum.Enum):
+    CRITICAL = "critical"
+    WARNING = "warning"
+    SUGGESTION = "suggestion"
+
+class Category(str, enum.Enum):
+    BUG = "bug"
+    SECURITY = "security"
+    PERFORMANCE = "performance"
+    STYLE = "style"
+    LOGIC = "logic"
+
+class ReviewFinding(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    file_path: str
+    line_number: int
+    severity: Severity
+    category: Category
+    message: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    suggested_fix: str | None = None</code></pre>
+        </div>
+
+        <div data-animate="fade-up" data-delay="200" style="margin-top: 24px;">
+          <div class="code-label">src/prompts/review_prompt.py</div>
+          <pre><code class="language-python">REVIEW_PROMPT_TEMPLATE = """\
+You are an expert code reviewer. Analyze the following git diff for bugs, \
+security vulnerabilities, performance issues, and code quality problems.
+
+File: {file_path}
+
+```diff
+{file_diff}
+```
+
+Return your findings as a JSON array. Each element must follow this schema exactly:
+
+[
+  {
+    "file_path": "{file_path}",
+    "line_number": 42,
+    "severity": "warning",
+    "category": "bug",
+    "message": "Description of the issue found",
+    "confidence": 0.85,
+    "suggested_fix": "How to fix the issue, or null if unclear"
+  }
+]
+
+Rules:
+- Only report real issues, not formatting nitpicks handled by linters.
+- Set confidence based on how certain you are about the issue.
+- If there are no issues, return an empty array: []
+- Return ONLY a valid JSON array. No explanations, no markdown wrapping.
+"""</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== Evaluation Results ======== -->
+  <section class="section section-alt" id="evaluation">
+    <div class="container">
+      <div class="section-label" data-animate="fade-up">Evaluation</div>
+      <h2 class="section-title" data-animate="fade-up" data-delay="100">Honest Benchmarks</h2>
+      <p class="section-subtitle" data-animate="fade-up" data-delay="150">
+        Evaluated against 10 synthetic PR diffs containing 30 known bugs across
+        security vulnerabilities, logic errors, and common bug patterns.
+      </p>
+
+      <!-- Metric Gauges -->
+      <div class="metrics-grid" data-animate="fade-up" data-delay="200">
+        <div class="metric-card">
+          <div class="metric-gauge">
+            <canvas id="gauge-precision" width="100" height="100"></canvas>
+            <div class="metric-gauge-value" style="color: #6C5CE7;">68.2%</div>
+          </div>
+          <div class="metric-label">Precision</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-gauge">
+            <canvas id="gauge-recall" width="100" height="100"></canvas>
+            <div class="metric-gauge-value" style="color: #4DA8FF;">50.0%</div>
+          </div>
+          <div class="metric-label">Recall</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-gauge">
+            <canvas id="gauge-f1" width="100" height="100"></canvas>
+            <div class="metric-gauge-value" style="color: #00D68F;">57.7%</div>
+          </div>
+          <div class="metric-label">F1 Score</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-gauge">
+            <canvas id="gauge-fpr" width="100" height="100"></canvas>
+            <div class="metric-gauge-value" style="color: #FF6B6B;">31.8%</div>
+          </div>
+          <div class="metric-label">False Positive Rate</div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="charts-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 40px;" data-animate="fade-up" data-delay="250">
+        <div class="chart-container">
+          <div class="chart-title">Per-Category Detection Accuracy</div>
+          <div style="height: 180px;">
+            <canvas id="chart-categories"></canvas>
+          </div>
+        </div>
+        <div class="chart-container">
+          <div class="chart-title">Per-Benchmark F1 Scores</div>
+          <div style="height: 180px;">
+            <canvas id="chart-radar"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Benchmark Table -->
+      <div data-animate="fade-up" data-delay="300">
+        <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 16px;">Benchmark Breakdown</h3>
+        <div class="table-wrapper">
+          <table class="benchmark-table">
+            <thead>
+              <tr>
+                <th>Benchmark</th>
+                <th>TP</th>
+                <th>FP</th>
+                <th>FN</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th>F1</th>
+                <th>Missed Finding</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">buffer_overflow</td>
+                <td>2</td><td>0</td><td>1</td>
+                <td><span class="badge badge-green">100%</span></td>
+                <td>66.7%</td>
+                <td>80.0%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">sprintf without size limit</td>
+              </tr>
+              <tr>
+                <td class="mono">hardcoded_secret</td>
+                <td>3</td><td>1</td><td>2</td>
+                <td>75.0%</td>
+                <td>60.0%</td>
+                <td>66.7%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">JWT secret, SMTP password</td>
+              </tr>
+              <tr>
+                <td class="mono">insecure_deser.</td>
+                <td>3</td><td>1</td><td>2</td>
+                <td>75.0%</td>
+                <td>60.0%</td>
+                <td>66.7%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">pickle.loads on backup/webhook</td>
+              </tr>
+              <tr>
+                <td class="mono">logic_error</td>
+                <td>2</td><td>1</td><td>1</td>
+                <td>66.7%</td>
+                <td>66.7%</td>
+                <td>66.7%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">OR instead of AND in eligibility</td>
+              </tr>
+              <tr>
+                <td class="mono">missing_validation</td>
+                <td>2</td><td>1</td><td>2</td>
+                <td>66.7%</td>
+                <td>50.0%</td>
+                <td>57.1%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">Path traversal, input format</td>
+              </tr>
+              <tr>
+                <td class="mono">sql_injection</td>
+                <td>1</td><td>0</td><td>1</td>
+                <td><span class="badge badge-green">100%</span></td>
+                <td>50.0%</td>
+                <td>66.7%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">f-string query in get_user</td>
+              </tr>
+              <tr>
+                <td class="mono">xss_vulnerability</td>
+                <td>1</td><td>1</td><td>1</td>
+                <td>50.0%</td>
+                <td>50.0%</td>
+                <td>50.0%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">Stored XSS without escaping</td>
+              </tr>
+              <tr>
+                <td class="mono">off_by_one</td>
+                <td>1</td><td>0</td><td>2</td>
+                <td><span class="badge badge-green">100%</span></td>
+                <td>33.3%</td>
+                <td>50.0%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">Integer division, negative index</td>
+              </tr>
+              <tr>
+                <td class="mono">null_reference</td>
+                <td>0</td><td>1</td><td>1</td>
+                <td><span class="badge badge-red">0%</span></td>
+                <td><span class="badge badge-red">0%</span></td>
+                <td>0%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">NoneType subscript on payment</td>
+              </tr>
+              <tr>
+                <td class="mono">race_condition</td>
+                <td>0</td><td>1</td><td>2</td>
+                <td><span class="badge badge-red">0%</span></td>
+                <td><span class="badge badge-red">0%</span></td>
+                <td>0%</td>
+                <td style="color: var(--text-secondary); font-size: 0.8rem;">check_and_increment, transfer</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="cost-badge" data-animate="fade-up" data-delay="350">
+          <span>52,340</span> tokens &middot; <span>94.7s</span> latency &middot; ~<span>$0.031</span> estimated cost
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== Limitations ======== -->
+  <section class="section" id="limitations">
+    <div class="container">
+      <div class="section-label" data-animate="fade-up">Limitations</div>
+      <h2 class="section-title" data-animate="fade-up" data-delay="100">Where It Breaks</h2>
+      <p class="section-subtitle" data-animate="fade-up" data-delay="150">
+        This section exists because honest evaluation matters more than impressive numbers.
+      </p>
+
+      <div class="limitations-grid">
+        <div class="limitation-card" data-animate="fade-up" data-delay="100">
+          <h4>32% False Positive Rate</h4>
+          <p>
+            Roughly 1 in 3 findings is noise. In a production setting, this erodes developer
+            trust quickly. A second LLM pass to self-critique would likely reduce this.
+          </p>
+        </div>
+        <div class="limitation-card" data-animate="fade-up" data-delay="150">
+          <h4>Security Recall at 48%</h4>
+          <p>
+            The agent misses more than half of security vulnerabilities. For context,
+            GPT-4 scored just 13% on the SecLLMHolmes benchmark for real-world vulnerability detection.
+          </p>
+        </div>
+        <div class="limitation-card" data-animate="fade-up" data-delay="200">
+          <h4>Race Conditions: 0% Recall</h4>
+          <p>
+            Concurrency bugs were completely missed. Single-file, single-pass analysis
+            fundamentally cannot reason about shared state, timing, or thread safety.
+          </p>
+        </div>
+        <div class="limitation-card" data-animate="fade-up" data-delay="250">
+          <h4>No Cross-File Context</h4>
+          <p>
+            Files are analyzed independently. The agent can't reason about call sites, type
+            definitions, or invariants defined elsewhere in the codebase.
+          </p>
+        </div>
+      </div>
+
+      <div class="callout" data-animate="fade-up" data-delay="300" style="margin-top: 32px;">
+        <div class="callout-title">This is LLM-assisted triage, not automated scanning</div>
+        <p>
+          The agent is best understood as a first-pass reviewer that catches surface-level issues
+          and flags areas for human attention. It does not replace SAST tools, linters, or human
+          review. The value is in reducing the reviewer's search space.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== Observability ======== -->
+  <section class="section section-alt" id="observability">
+    <div class="container">
+      <div class="section-label" data-animate="fade-up">Observability</div>
+      <h2 class="section-title" data-animate="fade-up" data-delay="100">Full Trace Visibility</h2>
+      <p class="section-subtitle" data-animate="fade-up" data-delay="150">
+        Every pipeline run is traced with Langfuse, providing per-node execution time,
+        token usage, cost breakdown, and error tracking.
+      </p>
+
+      <div class="glass-card" data-animate="fade-up" data-delay="200">
+        <div class="code-label">Langfuse Integration Pattern</div>
+        <pre><code class="language-python"># Every node is decorated for automatic tracing
+@observe(name="parse_diff")
+def parse_diff(state: ReviewState) -> ReviewState:
+    # ... node logic ...
+    _update_span(
+        input={"diff_length": len(raw_diff)},
+        output={"file_count": len(file_diffs)},
+    )
+    return {"file_diffs": file_diffs}
+
+# LLM calls get generation-level tracing
+@observe(name="analyze_single_file", as_type="generation")
+def _analyze_single_file(llm, path, diff):
+    # ... LLM call ...
+    _update_generation(
+        model=_MODEL_NAME,
+        usage_details={"input": prompt_tokens, "output": completion_tokens},
+        cost_details={"estimated_cost_usd": cost},
+    )
+    return validated_findings, token_usage</code></pre>
+        <p style="margin-top: 16px; font-size: 0.88rem; color: var(--text-secondary);">
+          Traces are exported as JSON and visualized on the
+          <a href="https://code-review-ai-agent.streamlit.app/" target="_blank" rel="noopener">live dashboard</a>
+          (Observability tab).
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== CI/CD ======== -->
+  <section class="section" id="cicd">
+    <div class="container">
+      <div class="section-label" data-animate="fade-up">CI/CD</div>
+      <h2 class="section-title" data-animate="fade-up" data-delay="100">GitHub Actions Integration</h2>
+      <p class="section-subtitle" data-animate="fade-up" data-delay="150">
+        Zero infrastructure. The agent runs as a GitHub Action on PR events &mdash;
+        no webhook server, no hosting required.
+      </p>
+
+      <div class="cicd-flow" data-animate="fade-up" data-delay="200">
+        <div class="cicd-step">PR Opened / Updated</div>
+        <div class="cicd-arrow">&rarr;</div>
+        <div class="cicd-step">Actions Trigger</div>
+        <div class="cicd-arrow">&rarr;</div>
+        <div class="cicd-step">Install &amp; Run Agent</div>
+        <div class="cicd-arrow">&rarr;</div>
+        <div class="cicd-step">Post Review Comment</div>
+      </div>
+
+      <div data-animate="fade-up" data-delay="250">
+        <div class="code-label">.github/workflows/code-review.yml</div>
+        <pre><code class="language-yaml">name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - "**.py"
+      - "**.js"
+      - "**.ts"
+      - "**.go"
+      - "**.rs"
+      - "**.java"
+      - "**.c"
+      - "**.cpp"
+      # ... 18 language extensions
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e .
+      - run: python scripts/run_review.py
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.url }}
+          PR_DIFF_URL: ${{ github.event.pull_request.diff_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_FULL_NAME: ${{ github.repository }}</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== Tech Stack ======== -->
+  <section class="section section-alt" id="tech-stack">
+    <div class="container">
+      <div class="section-label" data-animate="fade-up">Tech Stack</div>
+      <h2 class="section-title" data-animate="fade-up" data-delay="100">Built With</h2>
+      <p class="section-subtitle" data-animate="fade-up" data-delay="150">
+        Each tool was chosen for a specific reason &mdash; no defaults, no hype-driven decisions.
+      </p>
+
+      <div class="tech-grid">
+        <div class="tech-card" data-animate="fade-up" data-delay="100">
+          <div class="tech-card-name">LangGraph</div>
+          <div class="tech-card-purpose">Agent Orchestration</div>
+          <div class="tech-card-why">Explicit state machine with typed state &mdash; easier to debug and test than chain-based approaches</div>
+        </div>
+        <div class="tech-card" data-animate="fade-up" data-delay="150">
+          <div class="tech-card-name">Groq + Llama 3.3 70B</div>
+          <div class="tech-card-purpose">LLM Inference</div>
+          <div class="tech-card-why">Free tier (1K req/day), fast inference, strong code understanding for an open model</div>
+        </div>
+        <div class="tech-card" data-animate="fade-up" data-delay="200">
+          <div class="tech-card-name">Langfuse</div>
+          <div class="tech-card-purpose">Observability</div>
+          <div class="tech-card-why">Open-source, self-hostable, first-class LangGraph integration via @observe</div>
+        </div>
+        <div class="tech-card" data-animate="fade-up" data-delay="250">
+          <div class="tech-card-name">Pydantic</div>
+          <div class="tech-card-purpose">Structured Output</div>
+          <div class="tech-card-why">Type-safe finding models with automatic validation and serialization</div>
+        </div>
+        <div class="tech-card" data-animate="fade-up" data-delay="300">
+          <div class="tech-card-name">GitHub Actions</div>
+          <div class="tech-card-purpose">CI/CD Trigger</div>
+          <div class="tech-card-why">Zero infrastructure &mdash; runs on PR events without needing a webhook server</div>
+        </div>
+        <div class="tech-card" data-animate="fade-up" data-delay="350">
+          <div class="tech-card-name">Streamlit</div>
+          <div class="tech-card-purpose">Live Dashboard</div>
+          <div class="tech-card-why">Fastest path from Python to interactive web app for showcasing results</div>
+        </div>
+        <div class="tech-card" data-animate="fade-up" data-delay="400">
+          <div class="tech-card-name">httpx</div>
+          <div class="tech-card-purpose">Async HTTP</div>
+          <div class="tech-card-why">Modern async client for GitHub API calls with proper error handling</div>
+        </div>
+        <div class="tech-card" data-animate="fade-up" data-delay="450">
+          <div class="tech-card-name">pytest</div>
+          <div class="tech-card-purpose">Testing</div>
+          <div class="tech-card-why">Async test support, good fixture model for benchmark evaluation tests</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== Footer ======== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/rishimule/ai-code-review-agent" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://code-review-ai-agent.streamlit.app/" target="_blank" rel="noopener">Live Demo</a>
+        <a href="https://github.com/rishimule/ai-code-review-agent/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      </div>
+      <p class="footer-credit">
+        Built by <a href="https://github.com/rishimule" target="_blank" rel="noopener">Rishi Mule</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- ======== Scripts ======== -->
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+  <!-- Prism.js -->
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-yaml.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-diff.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
+
+  <!-- App JS -->
+  <script src="js/main.js"></script>
+</body>
+</html>
