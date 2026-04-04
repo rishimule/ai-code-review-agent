@@ -6,6 +6,55 @@
 (function () {
   'use strict';
 
+  /* ---------- Theme Toggle ---------- */
+
+  const html = document.documentElement;
+  const themeToggle = document.querySelector('.theme-toggle');
+
+  function applyTheme(theme) {
+    html.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }
+
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) {
+    applyTheme(savedTheme);
+  } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+    applyTheme('light');
+  }
+  // else: no attribute set, dark is the default via :root
+
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      applyTheme(current === 'light' ? 'dark' : 'light');
+    });
+  }
+
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('theme')) {
+      applyTheme(e.matches ? 'light' : 'dark');
+    }
+  });
+
+  /* ---------- Scroll to Top ---------- */
+
+  const scrollToTopBtn = document.querySelector('.scroll-to-top');
+
+  if (scrollToTopBtn) {
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 400) {
+        scrollToTopBtn.classList.add('visible');
+      } else {
+        scrollToTopBtn.classList.remove('visible');
+      }
+    }, { passive: true });
+
+    scrollToTopBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
   /* ---------- Scroll Reveal (IntersectionObserver) ---------- */
 
   const revealElements = document.querySelectorAll('[data-animate]');
